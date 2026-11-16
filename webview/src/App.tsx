@@ -17,6 +17,7 @@ import {
   LibraryItems,
 } from "@excalidraw/excalidraw/types";
 import { vscode } from "./vscode.ts";
+import { insertTable, parseClipboardTable } from "./pasteTable.ts";
 
 // Stable, webview-independent link format for "Copy link to object".
 // The default (window.location.href) yields a vscode-webview:// URL that
@@ -106,6 +107,27 @@ export default function App(props: {
       props.onChange([], { viewBackgroundColor: "#ffffff" }, {});
     }
   }, []);
+
+  // Paste a table (Excel / Sheets / Lark TSV, or a Markdown table) as a grid
+  // of cells instead of a single text blob.
+  useEffect(() => {
+    if (!excalidrawAPI || props.viewModeEnabled) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) {
+        return; // typing into a text element or a field: paste normally
+      }
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text) return;
+      const table = parseClipboardTable(text);
+      if (!table) return;
+      e.preventDefault();
+      e.stopPropagation(); // keep Excalidraw's own paste handler from running
+      insertTable(excalidrawAPI, table);
+    };
+    document.addEventListener("paste", onPaste, true);
+    return () => document.removeEventListener("paste", onPaste, true);
+  }, [excalidrawAPI, props.viewModeEnabled]);
 
   useEffect(() => {
     const listener = async (e: any) => {
