@@ -18,6 +18,11 @@ import {
 } from "@excalidraw/excalidraw/types";
 import { vscode } from "./vscode.ts";
 
+// Stable, webview-independent link format for "Copy link to object".
+// The default (window.location.href) yields a vscode-webview:// URL that
+// contains a per-session id and cannot be opened by the OS.
+const ELEMENT_LINK_PREFIX = "excalidraw-element://";
+
 function detectTheme() {
   switch (document.body.className) {
     case "vscode-dark":
@@ -162,6 +167,7 @@ export default function App(props: {
             saveToActiveFile: false,
           },
         }}
+        generateLinkForSelection={(id) => `${ELEMENT_LINK_PREFIX}${id}`}
         langCode={langCode}
         name={props.name}
         theme={theme}
@@ -180,6 +186,35 @@ export default function App(props: {
           )
         }
         onLinkOpen={(element, event) => {
+          const link = element.link ?? "";
+          if (link.startsWith(ELEMENT_LINK_PREFIX)) {
+            event.preventDefault();
+            const id = link.slice(ELEMENT_LINK_PREFIX.length);
+            // the id may refer to a single element or to a group
+            const targets = (excalidrawAPI?.getSceneElements() ?? []).filter(
+              (el) => !el.isDeleted && (el.id === id || el.groupIds.includes(id))
+            );
+            if (targets.length === 0) {
+              vscode.postMessage({
+                type: "error",
+                content: "Linked element no longer exists in this drawing.",
+              });
+              return;
+            }
+            excalidrawAPI?.scrollToContent(targets, {
+              fitToViewport: true,
+              viewportZoomFactor: 0.6,
+              animate: true,
+            });
+            excalidrawAPI?.updateScene({
+              appState: {
+                selectedElementIds: Object.fromEntries(
+                  targets.map((el) => [el.id, true as const])
+                ),
+              },
+            });
+            return;
+          }
           vscode.postMessage({
             type: "link-open",
             url: element.link,
