@@ -49,3 +49,71 @@ kbd {
   font-weight: 100 900;
   unicode-range: U+2E80-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF, U+3000-303F;
 }
+
+/* Code to Excalidraw dialog */
+.code-dialog-trigger {
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--island-bg-color, #fff);
+  color: var(--text-primary-color, #1b1b1f);
+  box-shadow: var(--shadow-island);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.code-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+.code-dialog {
+  width: min(1100px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 20px 24px;
+  border-radius: 12px;
+  background: var(--island-bg-color, #fff);
+  color: var(--text-primary-color, #1b1b1f);
+}
+.code-dialog h3 { margin: 0 0 4px; }
+.code-dialog-hint { margin: 0; font-size: 12px; opacity: 0.6; }
+.code-dialog-panels { display: flex; gap: 16px; margin-top: 12px; }
+.code-dialog-panel { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.code-dialog textarea {
+  height: 380px;
+  resize: none;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ced4da;
+  background: #fff;
+  color: #1b1b1f;
+  font-family: "Nunito", monospace;
+  font-size: 13px;
+  white-space: pre;
+}
+.code-dialog-preview {
+  height: 380px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ced4da;
+  background: #f8f9fa;
+}
+.code-dialog-error { color: #e03131; font-size: 12px; }
+.code-dialog-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.code-dialog-insert {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #6965db;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.code-dialog-insert:disabled { opacity: 0.4; cursor: default; }

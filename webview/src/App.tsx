@@ -19,6 +19,7 @@ import {
 import { vscode } from "./vscode.ts";
 import { insertTable, parseClipboardTable } from "./pasteTable.ts";
 import { insertCode, parseClipboardCode } from "./pasteCode.ts";
+import CodeDialog from "./CodeDialog.tsx";
 
 // Stable, webview-independent link format for "Copy link to object".
 // The default (window.location.href) yields a vscode-webview:// URL that
@@ -96,6 +97,7 @@ export default function App(props: {
   const { theme, setThemeConfig } = useTheme(props.theme);
   const [imageParams, setImageParams] = useState(props.imageParams);
   const [langCode, setLangCode] = useState(props.langCode);
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!props.dirty) {
@@ -194,6 +196,17 @@ export default function App(props: {
           },
         }}
         generateLinkForSelection={(id) => `${ELEMENT_LINK_PREFIX}${id}`}
+        renderTopRightUI={() =>
+          props.viewModeEnabled ? null : (
+            <button
+              className="code-dialog-trigger"
+              title="Code to Excalidraw"
+              onClick={() => setCodeDialogOpen(true)}
+            >
+              {"</>"} Code
+            </button>
+          )
+        }
         langCode={langCode}
         name={props.name}
         theme={theme}
@@ -261,6 +274,12 @@ export default function App(props: {
           });
         }}
       />
+      {codeDialogOpen && excalidrawAPI && (
+        <CodeDialog
+          api={excalidrawAPI}
+          onClose={() => setCodeDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
