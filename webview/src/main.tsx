@@ -16,6 +16,17 @@ import {
 } from "@excalidraw/excalidraw/types";
 import * as _ from "lodash-es";
 
+// Block Excalidraw's bundled "Nunito" FontFace so the @font-face override in
+// styles.css (Geist Mono Numerals + Noto Sans SC) is used instead.
+const OVERRIDDEN_FAMILIES = new Set(["Nunito"]);
+const originalFontsAdd = document.fonts.add.bind(document.fonts);
+document.fonts.add = (face: FontFace) => {
+  if (OVERRIDDEN_FAMILIES.has(face.family.replace(/["']/g, ""))) {
+    return document.fonts;
+  }
+  return originalFontsAdd(face);
+};
+
 const mimeTypeFallbacks = {
   "application/json": ["image/png", "image/svg+xml"],
   "image/svg+xml": ["application/json", "image/png"],
