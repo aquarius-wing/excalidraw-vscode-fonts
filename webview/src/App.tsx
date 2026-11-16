@@ -18,6 +18,7 @@ import {
 } from "@excalidraw/excalidraw/types";
 import { vscode } from "./vscode.ts";
 import { insertTable, parseClipboardTable } from "./pasteTable.ts";
+import { insertCode, parseClipboardCode } from "./pasteCode.ts";
 
 // Stable, webview-independent link format for "Copy link to object".
 // The default (window.location.href) yields a vscode-webview:// URL that
@@ -119,11 +120,14 @@ export default function App(props: {
       }
       const text = e.clipboardData?.getData("text/plain");
       if (!text) return;
-      const table = parseClipboardTable(text);
-      if (!table) return;
+      // code first: tab-indented code would otherwise look like a TSV table
+      const code = parseClipboardCode(text);
+      const table = code ? null : parseClipboardTable(text);
+      if (!code && !table) return;
       e.preventDefault();
       e.stopPropagation(); // keep Excalidraw's own paste handler from running
-      insertTable(excalidrawAPI, table);
+      if (code) insertCode(excalidrawAPI, code);
+      else if (table) insertTable(excalidrawAPI, table);
     };
     document.addEventListener("paste", onPaste, true);
     return () => document.removeEventListener("paste", onPaste, true);
