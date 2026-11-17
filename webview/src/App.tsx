@@ -20,6 +20,7 @@ import { vscode } from "./vscode.ts";
 import { insertTable, parseClipboardTable } from "./pasteTable.ts";
 import { insertCode, parseClipboardCode } from "./pasteCode.ts";
 import CodeDialog from "./CodeDialog.tsx";
+import MermaidDialog from "./MermaidDialog.tsx";
 
 // Stable, webview-independent link format for "Copy link to object".
 // The default (window.location.href) yields a vscode-webview:// URL that
@@ -101,6 +102,10 @@ export default function App(props: {
   const [codeEditing, setCodeEditing] = useState<
     { elementId: string; code: string; lang: string } | undefined
   >();
+  const [mermaidOpen, setMermaidOpen] = useState(false);
+  const [mermaidEditing, setMermaidEditing] = useState<
+    { mermaidId: string; source: string } | undefined
+  >();
 
   useEffect(() => {
     if (!props.dirty) {
@@ -142,7 +147,29 @@ export default function App(props: {
   useEffect(() => {
     if (!excalidrawAPI || props.viewModeEnabled) return;
     const onDbl = (e: MouseEvent) => {
-      const ids = Object.keys(excalidrawAPI.getAppState().selectedElementIds);
+      const selected = excalidrawAPI.getAppState().selectedElementIds;
+      const ids = Object.keys(selected);
+      // Mermaid diagram: any selected element tagged by MermaidDialog.
+      // Alt + double-click falls through to Excalidraw (edit a single text).
+      if (!e.altKey) {
+        const m: any = excalidrawAPI
+          .getSceneElements()
+          .find(
+            (x: any) =>
+              !x.isDeleted &&
+              selected[x.id] &&
+              typeof x.customData?.mermaidSource === "string"
+          );
+        if (m) {
+          setMermaidEditing({
+            mermaidId: m.customData.mermaidId,
+            source: m.customData.mermaidSource,
+          });
+          setMermaidOpen(true);
+          e.stopPropagation();
+          return;
+        }
+      }
       if (ids.length !== 1) return;
       const el: any = excalidrawAPI
         .getSceneElements()
@@ -225,16 +252,28 @@ export default function App(props: {
         generateLinkForSelection={(id) => `${ELEMENT_LINK_PREFIX}${id}`}
         renderTopRightUI={() =>
           props.viewModeEnabled ? null : (
-            <button
-              className="code-dialog-trigger"
-              title="Code to Excalidraw"
-              onClick={() => {
-                setCodeEditing(undefined);
-                setCodeDialogOpen(true);
-              }}
-            >
-              {"</>"} Code
-            </button>
+            <>
+              <button
+                className="code-dialog-trigger"
+                title="Mermaid to Excalidraw (editable)"
+                onClick={() => {
+                  setMermaidEditing(undefined);
+                  setMermaidOpen(true);
+                }}
+              >
+                Mermaid
+              </button>
+              <button
+                className="code-dialog-trigger"
+                title="Code to Excalidraw"
+                onClick={() => {
+                  setCodeEditing(undefined);
+                  setCodeDialogOpen(true);
+                }}
+              >
+                {"</>"} Code
+              </button>
+            </>
           )
         }
         langCode={langCode}
@@ -261,7 +300,8 @@ export default function App(props: {
             const id = link.slice(ELEMENT_LINK_PREFIX.length);
             // the id may refer to a single element or to a group
             const targets = (excalidrawAPI?.getSceneElements() ?? []).filter(
-              (el) => !el.isDeleted && (el.id === id || el.groupIds.includes(id))
+              (el) =>
+                !el.isDeleted && (el.id === id || el.groupIds.includes(id))
             );
             if (targets.length === 0) {
               vscode.postMessage({
@@ -304,6 +344,16 @@ export default function App(props: {
           });
         }}
       />
+      {mermaidOpen && excalidrawAPI && (
+        <MermaidDialog
+          api={excalidrawAPI}
+          editing={mermaidEditing}
+          onClose={() => {
+            setMermaidOpen(false);
+            setMermaidEditing(undefined);
+          }}
+        />
+      )}
       {codeDialogOpen && excalidrawAPI && (
         <CodeDialog
           api={excalidrawAPI}
