@@ -98,6 +98,9 @@ export default function App(props: {
   const [imageParams, setImageParams] = useState(props.imageParams);
   const [langCode, setLangCode] = useState(props.langCode);
   const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [codeEditing, setCodeEditing] = useState<
+    { elementId: string; code: string; lang: string } | undefined
+  >();
 
   useEffect(() => {
     if (!props.dirty) {
@@ -133,6 +136,30 @@ export default function App(props: {
     };
     document.addEventListener("paste", onPaste, true);
     return () => document.removeEventListener("paste", onPaste, true);
+  }, [excalidrawAPI, props.viewModeEnabled]);
+
+  // Double-click a code image to edit its source in the same dialog.
+  useEffect(() => {
+    if (!excalidrawAPI || props.viewModeEnabled) return;
+    const onDbl = (e: MouseEvent) => {
+      const ids = Object.keys(excalidrawAPI.getAppState().selectedElementIds);
+      if (ids.length !== 1) return;
+      const el: any = excalidrawAPI
+        .getSceneElements()
+        .find((x) => x.id === ids[0] && !x.isDeleted);
+      if (el?.type !== "image" || typeof el.customData?.code !== "string") {
+        return;
+      }
+      setCodeEditing({
+        elementId: el.id,
+        code: el.customData.code,
+        lang: el.customData.lang ?? "typescript",
+      });
+      setCodeDialogOpen(true);
+      e.stopPropagation(); // skip Excalidraw's own double-click handling
+    };
+    document.addEventListener("dblclick", onDbl, true);
+    return () => document.removeEventListener("dblclick", onDbl, true);
   }, [excalidrawAPI, props.viewModeEnabled]);
 
   useEffect(() => {
@@ -201,7 +228,10 @@ export default function App(props: {
             <button
               className="code-dialog-trigger"
               title="Code to Excalidraw"
-              onClick={() => setCodeDialogOpen(true)}
+              onClick={() => {
+                setCodeEditing(undefined);
+                setCodeDialogOpen(true);
+              }}
             >
               {"</>"} Code
             </button>
@@ -277,7 +307,11 @@ export default function App(props: {
       {codeDialogOpen && excalidrawAPI && (
         <CodeDialog
           api={excalidrawAPI}
-          onClose={() => setCodeDialogOpen(false)}
+          editing={codeEditing}
+          onClose={() => {
+            setCodeDialogOpen(false);
+            setCodeEditing(undefined);
+          }}
         />
       )}
     </div>

@@ -14,9 +14,10 @@ import {
 export default function CodeDialog(props: {
   api: ExcalidrawImperativeAPI;
   onClose: () => void;
+  editing?: { elementId: string; code: string; lang: string };
 }) {
-  const [code, setCode] = useState("");
-  const [lang, setLang] = useState<string>("typescript");
+  const [code, setCode] = useState(props.editing?.code ?? "");
+  const [lang, setLang] = useState<string>(props.editing?.lang ?? "typescript");
   const [result, setResult] = useState<CodeSvg | null>(null);
   const [error, setError] = useState("");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -59,6 +60,33 @@ export default function CodeDialog(props: {
         created: Date.now(),
       },
     ]);
+    const customData = { code, lang };
+    if (props.editing) {
+      // replace the image in place, keeping its position (anchored at center)
+      const id = props.editing.elementId;
+      api.updateScene({
+        elements: api.getSceneElements().map((el: any) => {
+          if (el.id !== id) return el;
+          const cx = el.x + el.width / 2;
+          const cy = el.y + el.height / 2;
+          return {
+            ...el,
+            fileId,
+            x: cx - result.width / 2,
+            y: cy - result.height / 2,
+            width: result.width,
+            height: result.height,
+            customData,
+            version: el.version + 1,
+            versionNonce: Math.floor(Math.random() * 2 ** 31),
+            updated: Date.now(),
+          };
+        }),
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      props.onClose();
+      return;
+    }
     const s = api.getAppState();
     const x = -s.scrollX + s.width / 2 / s.zoom.value - result.width / 2;
     const y = -s.scrollY + s.height / 2 / s.zoom.value - result.height / 2;
@@ -72,7 +100,7 @@ export default function CodeDialog(props: {
         height: result.height,
         status: "saved",
       } as any,
-    ]);
+    ]).map((el: any) => ({ ...el, customData }));
     api.updateScene({
       elements: [...api.getSceneElements(), ...created],
       appState: {
@@ -95,7 +123,7 @@ export default function CodeDialog(props: {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) insert();
         }}
       >
-        <h3>Code to Excalidraw</h3>
+        <h3>{props.editing ? "Edit code" : "Code to Excalidraw"}</h3>
         <p className="code-dialog-hint">
           Paste code; it is inserted as a syntax-highlighted image.
         </p>
@@ -132,7 +160,7 @@ export default function CodeDialog(props: {
         </div>
         <div className="code-dialog-actions">
           <button className="code-dialog-insert" disabled={!result} onClick={insert}>
-            Insert →
+            {props.editing ? "Update →" : "Insert →"}
           </button>
           <span className="code-dialog-hint">Cmd/Ctrl + Enter</span>
         </div>
