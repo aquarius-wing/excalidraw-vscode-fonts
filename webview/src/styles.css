@@ -90,9 +90,9 @@ kbd {
   resize: none;
   padding: 10px;
   border-radius: 8px;
-  border: 1px solid #ced4da;
-  background: #fff;
-  color: #1b1b1f;
+  border: 1px solid var(--input-border-color, #ced4da);
+  background: var(--input-bg-color, #fff);
+  color: var(--text-primary-color, #1b1b1f);
   font-family: "Nunito", monospace;
   font-size: 13px;
   white-space: pre;
@@ -102,8 +102,8 @@ kbd {
   overflow: auto;
   padding: 10px;
   border-radius: 8px;
-  border: 1px solid #ced4da;
-  background: #f8f9fa;
+  border: 1px solid var(--input-border-color, #ced4da);
+  background: var(--default-bg-color, #f8f9fa);
 }
 .code-dialog-error { color: #e03131; font-size: 12px; }
 .code-dialog-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
