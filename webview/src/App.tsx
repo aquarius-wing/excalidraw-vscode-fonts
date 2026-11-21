@@ -21,6 +21,7 @@ import { insertTable, parseClipboardTable } from "./pasteTable.ts";
 import { insertCode, parseClipboardCode } from "./pasteCode.ts";
 import CodeDialog from "./CodeDialog.tsx";
 import MermaidDialog from "./MermaidDialog.tsx";
+import { Collab, CollabStatus } from "./collab.ts";
 
 // Stable, webview-independent link format for "Copy link to object".
 // The default (window.location.href) yields a vscode-webview:// URL that
@@ -102,6 +103,25 @@ export default function App(props: {
   const [codeEditing, setCodeEditing] = useState<
     { elementId: string; code: string; lang: string } | undefined
   >();
+  const [collabStatus, setCollabStatus] = useState<CollabStatus>({
+    active: false,
+    peers: 0,
+    state: "idle",
+  });
+  const apiRef = useRef<ExcalidrawImperativeAPI>();
+  apiRef.current = excalidrawAPI;
+  const collabRef = useRef<Collab>();
+  if (!collabRef.current) {
+    collabRef.current = new Collab(
+      () => apiRef.current,
+      (st) => {
+        setCollabStatus(st);
+        vscode.postMessage({ type: "collab-status", status: st });
+      }
+    );
+  }
+  const collab = collabRef.current;
+  useEffect(() => () => collab.stop(), []);
   const [mermaidOpen, setMermaidOpen] = useState(false);
   const [mermaidEditing, setMermaidEditing] = useState<
     { mermaidId: string; source: string } | undefined
@@ -221,6 +241,17 @@ export default function App(props: {
             setLangCode(message.langCode);
             break;
           }
+          case "collab-start":
+            collab.start({
+              serverUrl: message.serverUrl,
+              webUrl: message.webUrl,
+              username: message.username,
+              link: message.link,
+            });
+            break;
+          case "collab-stop":
+            collab.stop();
+            break;
           case "image-params-change": {
             setImageParams(message.imageParams);
           }
@@ -253,6 +284,35 @@ export default function App(props: {
         renderTopRightUI={() =>
           props.viewModeEnabled ? null : (
             <>
+              {collabStatus.active ? (
+                <>
+                  <button
+                    className="code-dialog-trigger"
+                    title={collabStatus.error ?? "Copy the room link"}
+                    onClick={() =>
+                      vscode.postMessage({ type: "collab-copy", link: collabStatus.link })
+                    }
+                  >
+                    {collabStatus.state === "error" ? "⚠ " : "● "}
+                    {collabStatus.peers} · Copy link
+                  </button>
+                  <button
+                    className="code-dialog-trigger"
+                    title="Stop collaborating"
+                    onClick={() => collab.stop()}
+                  >
+                    Stop
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="code-dialog-trigger"
+                  title="Start a live collaboration room"
+                  onClick={() => vscode.postMessage({ type: "collab-request-start" })}
+                >
+                  Collaborate
+                </button>
+              )}
               <button
                 className="code-dialog-trigger"
                 title="Mermaid to Excalidraw (editable)"
@@ -276,6 +336,8 @@ export default function App(props: {
             </>
           )
         }
+        isCollaborating={collabStatus.active}
+        onPointerUpdate={(p) => collab.onPointer(p)}
         langCode={langCode}
         name={props.name}
         theme={theme}
@@ -286,13 +348,14 @@ export default function App(props: {
           scrollToContent: true,
         }}
         libraryReturnUrl={"vscode://pomdtr.excalidraw-editor/importLib"}
-        onChange={(elements, appState, files) =>
+        onChange={(elements, appState, files) => {
+          collab.onLocalChange(elements);
           props.onChange(
             elements,
             { ...appState, ...imageParams, exportEmbedScene: true },
             files
-          )
-        }
+          );
+        }}
         onLinkOpen={(element, event) => {
           const link = element.link ?? "";
           if (link.startsWith(ELEMENT_LINK_PREFIX)) {

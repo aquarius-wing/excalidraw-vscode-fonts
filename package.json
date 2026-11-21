@@ -97,6 +97,26 @@
                 "category": "Excalidraw",
                 "title": "Open Image to the Side",
                 "icon": "$(go-to-file)"
+            },
+            {
+                "command": "excalidraw.collab.start",
+                "category": "Excalidraw",
+                "title": "Start Live Collaboration"
+            },
+            {
+                "command": "excalidraw.collab.join",
+                "category": "Excalidraw",
+                "title": "Join Live Collaboration"
+            },
+            {
+                "command": "excalidraw.collab.copyLink",
+                "category": "Excalidraw",
+                "title": "Copy Collaboration Link"
+            },
+            {
+                "command": "excalidraw.collab.stop",
+                "category": "Excalidraw",
+                "title": "Stop Live Collaboration"
             }
         ],
         "configuration": [
@@ -242,6 +262,21 @@
                             "exportWithBackground": true,
                             "exportWithDarkMode": false
                         }
+                    },
+                    "excalidraw.collab.serverUrl": {
+                        "type": "string",
+                        "default": "http://localhost:3002",
+                        "description": "excalidraw-room relay (Socket.IO) used for live collaboration."
+                    },
+                    "excalidraw.collab.webUrl": {
+                        "type": "string",
+                        "default": "http://localhost:3001",
+                        "description": "Excalidraw web app origin used when building shareable room links."
+                    },
+                    "excalidraw.collab.username": {
+                        "type": "string",
+                        "default": "",
+                        "description": "Name shown on your cursor for collaborators. Defaults to \"VS Code\"."
                     }
                 }
             }

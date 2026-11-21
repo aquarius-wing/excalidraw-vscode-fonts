@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { newUntitledExcalidrawDocument } from "./utils";
+import { ExcalidrawEditor } from "./editor";
 
 function getConfigurationScope(
   config: vscode.WorkspaceConfiguration,
@@ -138,4 +139,25 @@ export function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("excalidraw.preventDefault", () => {})
   );
+  const collab = (id: string, fn: (e: ExcalidrawEditor) => void | Promise<void>) =>
+    context.subscriptions.push(
+      vscode.commands.registerCommand(id, () => {
+        const editor = ExcalidrawEditor.active;
+        if (!editor) {
+          vscode.window.showWarningMessage("Open an Excalidraw file first.");
+          return;
+        }
+        return fn(editor);
+      })
+    );
+  collab("excalidraw.collab.start", (e) => e.startCollab());
+  collab("excalidraw.collab.join", async (e) => {
+    const link = await vscode.window.showInputBox({
+      prompt: "Paste the collaboration link (…/#room=<id>,<key>)",
+      ignoreFocusOut: true,
+    });
+    if (link) e.startCollab(link.trim());
+  });
+  collab("excalidraw.collab.copyLink", (e) => e.copyCollabLink());
+  collab("excalidraw.collab.stop", (e) => e.stopCollab());
 }

@@ -63,8 +63,21 @@ export class ExcalidrawEditorProvider
     );
     const editorDisposable = await editor.setupWebview();
 
+    ExcalidrawEditor.active = editor;
+    const viewState = webviewPanel.onDidChangeViewState((e) => {
+      if (e.webviewPanel.active) {
+        ExcalidrawEditor.active = editor;
+        ExcalidrawEditor.refreshStatusBar();
+      }
+    });
+
     webviewPanel.onDidDispose(() => {
+      viewState.dispose();
       editorDisposable.dispose();
+      if (ExcalidrawEditor.active === editor) {
+        ExcalidrawEditor.active = undefined;
+      }
+      ExcalidrawEditor.refreshStatusBar();
     });
   }
 
@@ -136,6 +149,50 @@ export class ExcalidrawEditor {
   private static onLibraryImport = ExcalidrawEditor._onLibraryImport.event;
   private textDecoder = new TextDecoder();
 
+  // ---- live collaboration -------------------------------------------------
+  public static active: ExcalidrawEditor | undefined;
+  private static statusBar: vscode.StatusBarItem | undefined;
+  private collabStatus: any = { active: false, peers: 0 };
+
+  public static refreshStatusBar() {
+    const item = (ExcalidrawEditor.statusBar ??= vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100
+    ));
+    const st = ExcalidrawEditor.active?.collabStatus;
+    if (!st?.active) {
+      item.hide();
+      return;
+    }
+    item.text = `$(broadcast) Excalidraw: ${st.peers} online`;
+    item.tooltip = st.error ?? "Click to copy the collaboration link";
+    item.command = "excalidraw.collab.copyLink";
+    item.show();
+  }
+
+  /** Start a new room, or join `link` when given. */
+  public startCollab(link?: string) {
+    const cfg = vscode.workspace.getConfiguration("excalidraw");
+    this.webview.postMessage({
+      type: "collab-start",
+      serverUrl: cfg.get<string>("collab.serverUrl", "http://localhost:3002"),
+      webUrl: cfg.get<string>("collab.webUrl", "http://localhost:3001"),
+      username: cfg.get<string>("collab.username") || "VS Code",
+      link,
+    });
+  }
+
+  public stopCollab() {
+    this.webview.postMessage({ type: "collab-stop" });
+  }
+
+  public async copyCollabLink(link?: string) {
+    const l = link ?? this.collabStatus.link;
+    if (!l) return;
+    await vscode.env.clipboard.writeText(l);
+    vscode.window.showInformationMessage("Excalidraw collaboration link copied.");
+  }
+
   constructor(
     readonly document: ExcalidrawDocument,
     readonly webview: vscode.Webview,
@@ -166,6 +223,24 @@ export class ExcalidrawEditor {
             await this.saveLibrary(library, libraryUri);
             ExcalidrawEditor._onDidChangeLibrary.fire(library);
             break;
+          case "collab-request-start":
+            this.startCollab();
+            break;
+          case "collab-copy":
+            await this.copyCollabLink(msg.link);
+            break;
+          case "collab-status": {
+            const first = !this.collabStatus.active && msg.status.active;
+            this.collabStatus = msg.status;
+            ExcalidrawEditor.refreshStatusBar();
+            if (first && msg.status.link) {
+              await this.copyCollabLink(msg.status.link);
+            }
+            if (msg.status.state === "error" && msg.status.error) {
+              vscode.window.showErrorMessage(msg.status.error);
+            }
+            break;
+          }
           case "change":
             await this.document.update(new Uint8Array(msg.content));
             break;
